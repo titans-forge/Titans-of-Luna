@@ -1,0 +1,33 @@
+{
+  "schema": "forge_game_media_inventory_v1",
+  "assets": [
+    {
+      "path": "assets/colony-building-atlas-expansion.png",
+      "sha256": "365efb8c8dc4e1a4619c05e21d8f4b94ca302a368ab5e96294d7b483be69f803",
+      "bytes": 702554
+    },
+    {
+      "path": "assets/colony-building-atlas.png",
+      "sha256": "041100241f9924729562a9a409a681460566e306238a77dec949b6e41771be16",
+      "bytes": 1387820
+    },
+    {
+      "path": "assets/lunar-terrain.png",
+      "sha256": "745990f9b5cc8c3109b70d2fb2bc4e32e375f2d3525ab3ea78b3f93e90094e62",
+      "bytes": 3760683
+    },
+    {
+      "path": "audio/handel-water-music-sarabande.mp3",
+      "sha256": "d95226714dfd71bbe2398866d38591ba6c737c317e6a5385deb06a84a67ead4a",
+      "bytes": 4283445
+    },
+    {
+      "path": "audio/holst-mars.mp3",
+      "sha256": "395a71de2daaf5cbd67b5f4f63a72090d2466968727a55abd69a0626b4aa0bb0",
+      "bytes": 11987514
+    }
+  ],
+  "rights_record": "MEDIA_RIGHTS.md",
+  "provider_evidence": "Retained project records; asset hashes do not independently establish rights.",
+  "private_receipts_included": false
+}

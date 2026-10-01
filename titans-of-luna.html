@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Build and sustain a lunar colony through resource pressure, research, and crisis decisions.">
+<title>Titans of Luna</title>
+<style>
+  :root {
+    --bg: #0a0f1a;
+    --panel: #121a2b;
+    --accent: #4aa3ff;
+    --good: #4ade80;
+    --warn: #fbbf24;
+    --bad: #f87171;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: #e2e8f0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  header {
+    background: #0f1626;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid #1f2a44;
+    flex-shrink: 0;
+  }
+  h1 { margin: 0; font-size: 20px; letter-spacing: 1px; }
+  .turn { font-size: 15px; background: #1f2a44; padding: 2px 10px; border-radius: 4px; }
+  .main {
+    display: flex;
+    flex: 1;
+    gap: 12px;
+    padding: 12px;
+    overflow: hidden;
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+  #gameCanvas {
+    background: #090d12;
+    border: 1px solid #52606d;
+    border-radius: 6px;
+    cursor: crosshair;
+    box-shadow: 0 16px 34px rgba(0,0,0,0.42), inset 0 0 0 1px rgba(255,255,255,0.05);
+    width: min(calc(100vh - 90px), calc(100vw - 340px), 760px);
+    height: auto;
+    aspect-ratio: 1;
+    align-self: flex-start;
+    flex: 0 0 auto;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid #1f2a44;
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .sidebar { width: 260px; overflow-y: auto; }
+  .log { flex: 1; min-height: 120px; overflow-y: auto; font-size: 13px; background: #0a0f1a; padding: 8px; border-radius: 4px; border: 1px solid #1f2a44; }
+  .resources { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 13px; }
+  .resource {
+    background: #0a0f1a;
+    padding: 4px 8px;
+    border-radius: 3px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .resource span { font-weight: 600; }
+  .bar { height: 4px; background: #334155; border-radius: 2px; margin-top: 2px; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--accent); transition: width .2s; }
+  .build-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .build-btn {
+    background: #1f2a44;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    text-align: left;
+  }
+  .build-btn:hover { background: #273552; border-color: var(--accent); }
+  .build-btn.selected { border-color: var(--accent); background: #1e3a5f; }
+  .build-btn small { display: block; color: #64748b; font-size: 10px; }
+  .build-thumb {
+    display: block;
+    width: 100%;
+    height: 42px;
+    margin-bottom: 3px;
+    background-repeat: no-repeat;
+    filter: drop-shadow(0 4px 3px rgba(0,0,0,0.7));
+  }
+  button {
+    background: var(--accent);
+    color: #0a0f1a;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.1); }
+  .end-turn {
+    font-size: 15px;
+    padding: 10px;
+    background: #22c55e;
+    color: #052e16;
+  }
+  .info {
+    font-size: 12px;
+    color: #64748b;
+    background: #0a0f1a;
+    padding: 6px;
+    border-radius: 3px;
+  }
+  .faction-select {
+    position: absolute;
+    inset: 0;
+    background: rgba(10,15,26,0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .faction-card {
+    background: #121a2b;
+    border: 1px solid #1f2a44;
+    color: #e2e8f0;
+    padding: 16px;
+    margin: 8px;
+    width: 240px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+  }
+  .faction-card:hover { border-color: var(--accent); }
+  button:focus-visible, input:focus-visible, .faction-card:focus-visible {
+    outline: 3px solid #93c5fd;
+    outline-offset: 2px;
+  }
+  .hidden { display: none !important; }
+  .log-entry { margin-bottom: 4px; }
+  .log-entry.crisis { color: #fbbf24; }
+  .log-entry.good { color: #4ade80; }
+  .log-entry.bad { color: #f87171; }
+  .status { font-size: 13px; }
+  @media (max-width: 800px) {
+    body { height: auto; min-height: 100vh; overflow: auto; }
+    header { padding: 10px 12px; flex-wrap: wrap; gap: 8px 12px; }
+    header > div:last-child { width: 100%; margin-left: 0 !important; }
+    .main { flex-direction: column; overflow: visible; padding: 8px; }
+    #gameCanvas { width: min(100%, 528px); align-self: center; }
+    .sidebar { width: auto; min-height: 0; overflow-y: visible; }
+    .log { min-height: 100px; max-height: 180px; }
+    .faction-select { position: fixed; overflow-y: auto; padding: 16px 0; box-sizing: border-box; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>☾ TITANS OF LUNA</h1>
+  <div class="status">
+    <span id="factionName">—</span> • 
+    <span class="turn">Sol <span id="turn">1</span></span>
+  </div>
+  <div style="margin-left:auto; font-size:12px; color:#64748b;">
+    Moon Colony Builder • Self-contained
+  </div>
+</header>
+
+<div class="main">
+  <canvas id="gameCanvas" width="528" height="528"></canvas>
+
+  <div class="panel sidebar">
+    <div>
+      <strong>Resources</strong>
+      <div id="resources" class="resources"></div>
+    </div>
+
+    <div>
+      <strong>Build Palette</strong>
+      <div id="buildPalette" class="build-grid"></div>
+      <div id="selectedInfo" class="info">Select a building to place</div>
+    </div>
+
+    <div style="font-size:12px;">
+      <strong>Sound</strong> <span style="color:#64748b">(optional, low vol - not focus)</span><br>
+      <button onclick="toggleSound('calm')" style="font-size:11px;padding:1px 6px;margin:1px;">Calm</button>
+      <button onclick="toggleSound('theme')" style="font-size:11px;padding:1px 6px;margin:1px;">Theme</button>
+      <button onclick="stopSound()" style="font-size:11px;padding:1px 6px;margin:1px;">Stop</button>
+      <input type="range" min="0" max="0.5" step="0.05" value="0.25" oninput="setVolume(this.value)" style="width:80px;vertical-align:middle;">
+    </div>
+
+    <button id="endTurnBtn" class="end-turn">END TURN</button>
+
+    <div>
+      <strong>Event Log</strong>
+      <div id="log" class="log"></div>
+    </div>
+
+    <div class="info">
+      Click empty tile to build (connect via hub or chain of buildings for full effect).<br>
+      Right-click building to repair. C to cancel.<br>
+      Sound: optional (auto-tries calm after turn 1 at low vol).<br>
+      Survive lunar nights, manage crises, research unlocks.
+    </div>
+
+    <div style="display:flex; gap:6px;">
+      <button onclick="saveGame()" style="background:#334155;color:#e2e8f0;flex:1;font-size:12px;padding:4px;">Save</button>
+      <button onclick="loadGame()" style="background:#334155;color:#e2e8f0;flex:1;font-size:12px;padding:4px;">Load</button>
+      <button onclick="newGame()" style="background:#334155;color:#e2e8f0;flex:1;font-size:12px;padding:4px;">New</button>
+    </div>
+  </div>
+</div>
+
+<!-- Faction Selection Overlay -->
+<div id="factionOverlay" class="faction-select">
+  <div>
+    <h2 style="text-align:center; margin-bottom:8px;">Choose Your Sponsor</h2>
+    <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+      <button type="button" class="faction-card" data-faction="us-spacex">
+        <strong>🇺🇸 US / SpaceX</strong><br>
+        <small>Tech leaders. Excellent solar &amp; rapid deployment.</small>
+        <div style="margin-top:6px; font-size:11px; color:#4ade80;">+25% solar output • Cheaper advanced buildings</div>
+      </button>
+      <button type="button" class="faction-card" data-faction="china">
+        <strong>🇨🇳 China</strong><br>
+        <small>Industrial might. Strong manufacturing &amp; growth.</small>
+        <div style="margin-top:6px; font-size:11px; color:#4ade80;">+30% materials • Faster population growth</div>
+      </button>
+      <button type="button" class="faction-card" data-faction="russia">
+        <strong>🇷🇺 Russia</strong><br>
+        <small>Resilient systems. Tough in extreme conditions.</small>
+        <div style="margin-top:6px; font-size:11px; color:#4ade80;">Buildings resist damage • Better baseline life support</div>
+      </button>
+    </div>
+    <p style="text-align:center; margin-top:16px; font-size:12px; color:#64748b;">
+      Build reactors, greenhouses, habitats and more.<br>
+      Survive the harsh lunar environment.
+    </p>
+  </div>
+</div>
+
+<!-- Optional self-hosted public-domain soundtrack. See MEDIA_RIGHTS.md. -->
+<audio id="audio-calm" src="audio/handel-water-music-sarabande.mp3" loop></audio>
+<audio id="audio-theme" src="audio/holst-mars.mp3" loop></audio>
+
+<script>
+// ==================== TITANS OF LUNA ====================
+// Self-contained single-file moon colony builder
+// Lightweight, turn-based implementation with local assets.
+
+const GRID_SIZE = 11;
+const TILE_SIZE = 48;
+const CANVAS_SIZE = GRID_SIZE * TILE_SIZE;
+
+const VISUAL_ASSETS = {
+  terrain: new Image(),
+  mainAtlas: new Image(),
+  expansionAtlas: new Image()
+};
+
+const BUILDING_SPRITES = {
+  habitat: { atlas: 'mainAtlas', frame: 0, columns: 4, rows: 2 },
+  solar: { atlas: 'mainAtlas', frame: 1, columns: 4, rows: 2 },
+  reactor: { atlas: 'mainAtlas', frame: 2, columns: 4, rows: 2 },
+  lifesupport: { atlas: 'mainAtlas', frame: 3, columns: 4, rows: 2 },
+  medical: { atlas: 'mainAtlas', frame: 4, columns: 4, rows: 2 },
+  processor: { atlas: 'mainAtlas', frame: 5, columns: 4, rows: 2 },
+  research: { atlas: 'mainAtlas', frame: 6, columns: 4, rows: 2 },
+  iceminer: { atlas: 'mainAtlas', frame: 7, columns: 4, rows: 2 },
+  battery: { atlas: 'expansionAtlas', frame: 0, columns: 3, rows: 1 },
+  greenhouse: { atlas: 'expansionAtlas', frame: 1, columns: 3, rows: 1 },
+  launchpad: { atlas: 'expansionAtlas', frame: 2, columns: 3, rows: 1 }
+};
+
+function preloadVisualAssets() {
+  const sources = {
+    terrain: 'assets/lunar-terrain.png',
+    mainAtlas: 'assets/colony-building-atlas.png',
+    expansionAtlas: 'assets/colony-building-atlas-expansion.png'
+  };
+  Object.entries(sources).forEach(([key, src]) => {
+    const image = VISUAL_ASSETS[key];
+    image.onload = () => { if (state && ctx) draw(); };
+    image.src = src;
+  });
+}
+
+function getSpriteCss(type) {
+  const sprite = BUILDING_SPRITES[type];
+  if (!sprite) return '';
+  const col = sprite.frame % sprite.columns;
+  const row = Math.floor(sprite.frame / sprite.columns);
+  const x = sprite.columns === 1 ? 0 : col * (100 / (sprite.columns - 1));
+  const y = sprite.rows === 1 ? 0 : row * (100 / (sprite.rows - 1));
+  const file = sprite.atlas === 'expansionAtlas'
+    ? 'assets/colony-building-atlas-expansion.png'
+    : 'assets/colony-building-atlas.png';
+  return `background-image:url('${file}');background-size:${sprite.columns * 100}% ${sprite.rows * 100}%;background-position:${x}% ${y}%;`;
+}
+
+// Building definitions
+const BUILDINGS = {
+  solar: {
+    id: 'solar', name: 'Solar Array', symbol: '☼',
+    cost: { materials: 28 },
+    power: 38, 
+    description: 'Produces power during daylight. Weak during lunar night. Degrades from regolith dust.'
+  },
+  reactor: {
+    id: 'reactor', name: 'Nuclear Reactor', symbol: '☢',
+    cost: { materials: 95 },
+    power: 115,
+    description: 'Reliable baseload power. Expensive but stable. Resistant to most damage.'
+  },
+  greenhouse: {
+    id: 'greenhouse', name: 'Greenhouse', symbol: '❀',
+    cost: { materials: 42 },
+    powerUse: 12, food: 22, oxygen: 8,
+    description: 'Produces food and oxygen. Requires power and water.'
+  },
+  habitat: {
+    id: 'habitat', name: 'Habitat Module', symbol: '⌂',
+    cost: { materials: 55 },
+    powerUse: 9, 
+    crewCapacity: 12,
+    description: 'Houses colonists. Increases population capacity.'
+  },
+  iceminer: {
+    id: 'iceminer', name: 'Ice Miner', symbol: '❄',
+    cost: { materials: 38 },
+    powerUse: 14, water: 26,
+    description: 'Extracts water ice from lunar regolith.'
+  },
+  processor: {
+    id: 'processor', name: 'Regolith Processor', symbol: '⚙',
+    cost: { materials: 48 },
+    powerUse: 16, materials: 14,
+    description: 'Converts regolith into useful construction materials.'
+  },
+  lifesupport: {
+    id: 'lifesupport', name: 'Life Support', symbol: 'O₂',
+    cost: { materials: 35 },
+    powerUse: 11, oxygen: 18,
+    description: 'Backup oxygen generation and air processing.'
+  },
+  battery: {
+    id: 'battery', name: 'Battery Bank', symbol: '⚡',
+    cost: { materials: 31 },
+    powerUse: 2, 
+    storage: 180,
+    description: 'Stores surplus power for the long lunar night.'
+  },
+  medical: {
+    id: 'medical', name: 'Medical Clinic', symbol: '⚕',
+    cost: { materials: 52 },
+    powerUse: 8,
+    description: 'Improves morale and helps the colony withstand crises.'
+  },
+  research: {
+    id: 'research', name: 'Research Lab', symbol: '🔬',
+    cost: { materials: 70 },
+    powerUse: 15,
+    science: 5,
+    description: 'Generates science points for unlocking advanced buildings.'
+  },
+  launchpad: {
+    id: 'launchpad', name: 'Launch Pad', symbol: '🚀',
+    cost: { materials: 80 },
+    powerUse: 10,
+    description: 'Enables supply missions that can bring emergency resources.'
+  }
+};
+
+// Central hub position (starting command module)
+const HUB_X = 5;
+const HUB_Y = 5;
+const CONNECTION_RADIUS = 2; // Chebyshev-distance utility reach.
+
+const BUILD_ORDER = ['solar', 'reactor', 'greenhouse', 'habitat', 'iceminer', 'processor', 'lifesupport', 'battery', 'medical', 'research', 'launchpad'];
+
+// Research unlocks - per the plan's progression section
+const RESEARCH_UNLOCKS = {
+  8: ['medical'],
+  15: ['research'],
+  22: ['launchpad']
+};
+
+const FACTIONS = {
+  'us-spacex': {
+    name: 'US / SpaceX',
+    solarBonus: 1.25,
+    materialCostMod: 0.85,
+    description: 'Superior solar technology and logistics.'
+  },
+  'china': {
+    name: 'China',
+    materialBonus: 1.30,
+    popGrowthBonus: 1.4,
+    description: 'Industrial strength and rapid expansion.'
+  },
+  'russia': {
+    name: 'Russia',
+    durability: 1.35,
+    oxygenBonus: 1.2,
+    description: 'Rugged, reliable systems.'
+  }
+};
+
+const CRISES = [
+  {
+    id: 'lunar_night',
+    name: 'Lunar Night',
+    weight: 16,
+    desc: 'The long lunar night is beginning.',
+    choices: [
+      { title: 'Conserve power', description: 'Extend the night penalty but protect morale and equipment.', effect: () => { state.nightTurns = Math.max(state.nightTurns || 0, 4); }, log: 'You hunker down and stretch reserves.' },
+      { title: 'Push production', description: 'Shorten the effective night but stress the crew.', effect: () => { state.resources.morale = clampResource('morale', state.resources.morale - 8); }, log: 'You keep the crew working hard through the dark.' }
+    ]
+  },
+  {
+    id: 'regolith_storm',
+    name: 'Regolith Storm',
+    weight: 13,
+    desc: 'A fierce dust storm is scouring the surface.',
+    choices: [
+      { title: 'Shelter equipment', effect: () => { damageRandomBuildings(1, 0.18); }, log: 'You take precautions but still suffer some damage.' },
+      { title: 'Keep working', effect: () => { damageRandomBuildings(2, 0.22); state.resources.materials += 12; }, log: 'You push through and recover some extra regolith.' }
+    ]
+  },
+  {
+    id: 'radiation_spike',
+    name: 'Radiation Event',
+    weight: 10,
+    desc: 'Elevated radiation detected from a solar particle event.',
+    choices: [
+      { title: 'Shelter the crew', effect: () => { state.resources.morale = clampResource('morale', state.resources.morale - 6); }, log: 'Crew shelters. Morale dips from lost work.' },
+      { title: 'Finish critical tasks', effect: () => { damageRandomBuildings(1, 0.25); state.resources.science += 4; }, log: 'You get important work done at a cost.' }
+    ]
+  },
+  {
+    id: 'equipment_failure',
+    name: 'Equipment Failure',
+    weight: 11,
+    desc: 'One of your systems is showing critical wear.',
+    choices: [
+      { title: 'Emergency repair now', effect: () => { state.resources.materials = clampResource('materials', state.resources.materials - 15); }, log: 'You spend materials to stabilize it.' },
+      { title: 'Run it until it fails', effect: () => { damageRandomBuildings(1, 0.45); }, log: 'You risk it and the system takes heavy damage.' }
+    ]
+  },
+  {
+    id: 'supply_delay',
+    name: 'Supply Ship Delayed',
+    weight: 8,
+    desc: 'The next resupply from Earth is running late.',
+    choices: [
+      { title: 'Ration carefully', effect: () => { state.resources.food = clampResource('food', state.resources.food - 18); }, log: 'You stretch supplies but people go a bit hungry.' },
+      { title: 'Use emergency reserves', effect: () => { state.resources.morale = clampResource('morale', state.resources.morale - 5); state.resources.materials = clampResource('materials', state.resources.materials - 12); }, log: 'You dip into reserves to maintain operations.' }
+    ]
+  },
+  {
+    id: 'breakthrough',
+    name: 'Engineering Insight',
+    weight: 6,
+    desc: 'Your team has a clever idea for improving efficiency.',
+    choices: [
+      { title: 'Apply it immediately', effect: () => { state.resources.science += 5; damageRandomBuildings(1, 0.12); }, log: 'You test it right away (with some risk).' },
+      { title: 'Document and test safely', effect: () => { state.resources.science += 8; }, log: 'You take the careful route and gain solid progress.' }
+    ]
+  },
+  {
+    id: 'water_contamination',
+    name: 'Water Contamination',
+    weight: 7,
+    desc: 'Sensors detect impurities in the water supply.',
+    choices: [
+      { title: 'Filter aggressively', effect: () => { state.resources.water = clampResource('water', state.resources.water - 25); state.resources.morale = clampResource('morale', state.resources.morale + 3); }, log: 'You sacrifice some water to clean it thoroughly.' },
+      { title: 'Dilute and monitor', effect: () => { state.resources.morale = clampResource('morale', state.resources.morale - 4); }, log: 'You conserve water but morale suffers from the risk.' }
+    ]
+  },
+  {
+    id: 'habitat_stress',
+    name: 'Habitat Overcrowding Stress',
+    weight: 8,
+    desc: 'The habitats are becoming cramped.',
+    choices: [
+      { title: 'Prioritize expansion', effect: () => { state.resources.materials = clampResource('materials', state.resources.materials - 20); }, log: 'You redirect materials to ease conditions.' },
+      { title: 'Enforce strict schedules', effect: () => { state.resources.morale = clampResource('morale', state.resources.morale - 7); state.resources.science += 3; }, log: 'Discipline helps research but hurts spirits.' }
+    ]
+  },
+  {
+    id: 'solar_flare',
+    name: 'Major Solar Flare',
+    weight: 5,
+    desc: 'An intense solar flare is approaching.',
+    choices: [
+      { title: 'Full shutdown of exposed systems', effect: () => { state.resources.power = clampResource('power', state.resources.power - 30); }, log: 'You protect equipment at the cost of power reserves.' },
+      { title: 'Minimize and ride it out', effect: () => { damageRandomBuildings(2, 0.28); }, log: 'Some systems take hits from the radiation.' }
+    ]
+  },
+  {
+    id: 'comm_delay',
+    name: 'Communication Delay with Earth',
+    weight: 6,
+    desc: 'Long lag in instructions from mission control.',
+    choices: [
+      { title: 'Act on last orders', effect: () => { state.resources.morale = clampResource('morale', state.resources.morale - 3); }, log: 'You proceed conservatively.' },
+      { title: 'Make local decision', effect: () => { state.resources.science += 2; state.resources.morale = clampResource('morale', state.resources.morale - 5); }, log: 'Autonomy helps research but stresses team.' }
+    ]
+  },
+  {
+    id: 'panel_degradation',
+    name: 'Solar Panel Degradation',
+    weight: 7,
+    desc: 'Extreme temperature swings damage solar arrays.',
+    choices: [
+      { title: 'Replace panels', effect: () => { state.resources.materials = clampResource('materials', state.resources.materials - 18); }, log: 'You spend materials to maintain output.' },
+      { title: 'Accept reduced efficiency', effect: () => { state.placedBuildings.forEach(b => { if (b.type==='solar') b.dust = Math.min(0.9, (b.dust||0) + 0.2); }); }, log: 'Output drops until repaired.' }
+    ]
+  }
+];
+
+let state = null;
+let selectedBuilding = null;
+let selectedBuildingForRepair = null;
+let canvas, ctx;
+let factionOverlay;
+
+// ==================== STATE ====================
+function createInitialState(factionId) {
+  const faction = FACTIONS[factionId];
+  return {
+    grid: Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null)),
+    resources: {
+      power: 65,
+      food: 80,
+      oxygen: 70,
+      water: 95,
+      materials: 120,
+      morale: 78,
+      population: 14,
+      science: 0
+    },
+    storage: {
+      power: 120,
+      water: 200,
+      oxygen: 150
+    },
+    turn: 1,
+    faction: factionId,
+    factionName: faction.name,
+    placedBuildings: [],
+    nightTurns: 0,
+    log: [],
+    populationCap: 24,
+    unlockedResearch: [],
+    richTiles: [],
+    gameOver: false,
+    defeat: false
+  };
+}
+
+function getResourceCap(res) {
+  if (res === 'power') return state.storage.power;
+  if (res === 'water') return state.storage.water;
+  if (res === 'oxygen') return state.storage.oxygen;
+  return 9999;
+}
+
+function clampResource(key, value) {
+  if (['power', 'water', 'oxygen'].includes(key)) {
+    return Math.max(0, Math.min(value, getResourceCap(key)));
+  }
+  if (key === 'morale') return Math.max(5, Math.min(100, value));
+  if (key === 'population') return Math.max(0, Math.min(state.populationCap, value));
+  return Math.max(0, value);
+}
+
+// ==================== SIMULATION ====================
+function calculateTurnEffects() {
+  const faction = FACTIONS[state.faction];
+  let deltas = {
+    power: 0, food: 0, oxygen: 0, water: 0,
+    materials: 0, morale: 0, population: 0, science: 0
+  };
+
+  const isNight = state.nightTurns > 0;
+  let solarFactor = isNight ? 0.18 : 1.0;
+
+  // Regolith dust accumulation on solar (new lunar mechanic)
+  if (!isNight) {
+    const dustRate = (state.faction === 'russia') ? 0.025 : 0.035; // Russia handles dust better
+    state.placedBuildings.forEach(b => {
+      if (b.type === 'solar') {
+        b.dust = (b.dust || 0) + dustRate;
+        if (b.dust > 0.6) b.dust = 0.6;
+      }
+    });
+  }
+
+  let totalPower = 0;
+  let totalPowerUse = 0;
+  let powerStorage = 120;  // base
+
+  // First pass: power and storage
+  state.placedBuildings.forEach(b => {
+    const def = BUILDINGS[b.type];
+    const eff = getBuildingEfficiency(b);
+
+    if (def.power) {
+      let p = def.power * eff;
+      if (b.type === 'solar') {
+        const dustPenalty = 1 - (b.dust || 0);
+        p *= (faction.solarBonus || 1) * solarFactor * dustPenalty;
+      }
+      totalPower += p;
+    }
+    if (def.powerUse) totalPowerUse += def.powerUse * eff;
+
+    // Battery adds to storage capacity (was missing)
+    if (b.type === 'battery' && def.storage) {
+      powerStorage += def.storage * eff;
+    }
+  });
+
+  state.storage.power = powerStorage;
+
+  deltas.power += totalPower - totalPowerUse;
+
+  // Stored power, including battery capacity, can carry production through shortfalls.
+  const populationPowerUse = Math.floor(state.resources.population * 1.1);
+  const powerDemand = totalPowerUse + populationPowerUse;
+  const availablePower = state.resources.power + totalPower;
+  const powerScale = powerDemand > 0 ? Math.min(1, availablePower / powerDemand) : 1;
+
+  // Second pass for other resources (with power scale)
+  state.placedBuildings.forEach(b => {
+    const def = BUILDINGS[b.type];
+    const eff = getBuildingEfficiency(b);
+
+    if (def.food) deltas.food += def.food * eff * powerScale;
+    if (def.oxygen) deltas.oxygen += def.oxygen * eff * powerScale * (faction.oxygenBonus || 1);
+    if (def.water) {
+      let w = def.water * eff * powerScale;
+      if (b.type === 'iceminer') {
+        const isRich = (state.richTiles || []).some(r => r.x === b.x && r.y === b.y);
+        if (isRich) w *= 1.5;
+      }
+      deltas.water += w;
+    }
+    if (def.materials) deltas.materials += def.materials * eff * powerScale * (faction.materialBonus || 1);
+    if (def.science) deltas.science += def.science * eff * powerScale;
+
+    // Light adjacency bonuses (cool idea from ref, kept minimal and original)
+    if (b.type === 'greenhouse' && hasAdjacent(b, 'habitat')) {
+      deltas.food += 3 * eff * powerScale;
+    }
+    if (b.type === 'reactor' && hasAdjacent(b, 'processor')) {
+      deltas.materials += 2 * eff * powerScale;
+    }
+  });
+
+  // Basic consumption
+  const pop = state.resources.population;
+  deltas.food -= Math.floor(pop * 1.6);
+  deltas.oxygen -= Math.floor(pop * 2.1);
+  deltas.water -= Math.floor(pop * 1.8);
+  deltas.power -= populationPowerUse;
+
+  // Habitat bonus
+  const hab = state.placedBuildings.filter(b => b.type === 'habitat').length;
+  state.populationCap = 18 + hab * 11;
+
+  // Population growth / loss
+  let growth = 0;
+  if (state.resources.food > 25 && state.resources.oxygen > 30 && state.resources.morale > 55) {
+    growth = Math.floor(1 + (state.resources.morale - 50) / 40);
+    if (faction.popGrowthBonus) growth *= faction.popGrowthBonus;
+  } else if (state.resources.food < 10 || state.resources.oxygen < 15) {
+    growth = -1;
+  }
+  deltas.population += growth;
+
+  // Morale drift
+  let moraleDrift = 0;
+  if (state.resources.food < 15 || state.resources.oxygen < 20) moraleDrift -= 5;
+  if (state.resources.power < 10) moraleDrift -= 4;
+  if (isNight) moraleDrift -= 3;
+
+  // Medical Clinic bonus (per plan)
+  const medicalCount = state.placedBuildings.filter(b => b.type === 'medical').length;
+  if (medicalCount > 0) {
+    moraleDrift += Math.min(4, medicalCount * 2); // reduces negative impact
+  }
+
+  deltas.morale += moraleDrift;
+
+  return deltas;
+}
+
+function getBuildingEfficiency(building) {
+  // Integrity system: buildings produce less when damaged
+  let base = 1.0;
+  const faction = FACTIONS[state.faction];
+
+  const damage = building.damage || 0;
+  let penalty = damage * 0.75;
+  if (faction && faction.durability) {
+    penalty /= faction.durability;  // durability reduces penalty only; undamaged = 100%
+  }
+  base *= (1 - penalty);
+
+  // Simple connection check (lightweight utility network idea)
+  if (!isConnected(building)) {
+    base *= 0.15; // Severely reduced if not connected to hub
+  }
+
+  return Math.max(0.15, Math.min(1.0, base));
+}
+
+function isConnected(building) {
+  if (!building || building.isHub) return true;
+  const conn = getConnectedBuildings();
+  return conn.has(building);
+}
+
+function getConnectedBuildings() {
+  if (!state || !state.placedBuildings || state.placedBuildings.length === 0) return new Set();
+  const connected = new Set();
+  const hub = state.placedBuildings.find(b => b.isHub);
+  if (!hub) return connected;
+  connected.add(hub);
+
+  let added = true;
+  while (added) {
+    added = false;
+    for (let b of state.placedBuildings) {
+      if (connected.has(b)) continue;
+      for (let c of connected) {
+        const dist = Math.max(Math.abs(b.x - c.x), Math.abs(b.y - c.y));
+        if (dist <= CONNECTION_RADIUS) {
+          connected.add(b);
+          added = true;
+          break;
+        }
+      }
+    }
+  }
+  return connected;
+}
+
+function hasAdjacent(building, type) {
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+  for (let [dx,dy] of dirs) {
+    const nx = building.x + dx, ny = building.y + dy;
+    if (nx>=0 && nx<GRID_SIZE && ny>=0 && ny<GRID_SIZE) {
+      const nb = state.grid[ny] && state.grid[ny][nx];
+      if (nb && nb.type === type) return true;
+    }
+  }
+  return false;
+}
+
+function applyDeltas(deltas) {
+  Object.keys(deltas).forEach(key => {
+    if (deltas[key] === 0) return;
+    state.resources[key] = clampResource(key, state.resources[key] + deltas[key]);
+  });
+}
+
+function processNightCycle() {
+  if (state.nightTurns > 0) {
+    state.nightTurns--;
+    if (state.nightTurns === 0) {
+      addLog("The lunar night has ended. Solar arrays are recovering.", "good");
+    }
+  }
+}
+
+function triggerCrisis() {
+  // Pick a crisis
+  let totalWeight = 0;
+  CRISES.forEach(c => totalWeight += c.weight);
+
+  let roll = Math.random() * totalWeight;
+  let chosen = CRISES[0];
+
+  for (const c of CRISES) {
+    roll -= c.weight;
+    if (roll <= 0) { chosen = c; break; }
+  }
+
+  addLog(`CRISIS: ${chosen.name} — ${chosen.desc}`, "crisis");
+
+  if (chosen.choices && chosen.choices.length >= 2) {
+    // Present choice to player
+    showCrisisChoice(chosen);
+  } else {
+    // Fallback simple effect (for backward compatibility)
+    if (chosen.id === 'lunar_night') {
+      state.nightTurns = Math.max(state.nightTurns || 0, 3);
+    } else if (chosen.id === 'regolith_storm') {
+      damageRandomBuildings(2, 0.22);
+    }
+  }
+}
+
+function showCrisisChoice(crisis) {
+  // Simple overlay for choice
+  const overlay = document.createElement('div');
+  overlay.className = 'crisis-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;box-sizing:border-box;overflow-y:auto;';
+  overlay.innerHTML = `
+    <div style="background:#121a2b;border:1px solid #1f2a44;padding:16px;max-width:420px;border-radius:6px;">
+      <h3 style="margin-top:0">${crisis.name}</h3>
+      <p>${crisis.desc}</p>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button id="choice0" style="flex:1">${crisis.choices[0].title}</button>
+        <button id="choice1" style="flex:1">${crisis.choices[1].title}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const btn0 = overlay.querySelector('#choice0');
+  const btn1 = overlay.querySelector('#choice1');
+
+  const resolve = (choice) => {
+    choice.effect();
+    addLog(choice.log || 'You made your decision.', 'crisis');
+    overlay.remove();
+    draw();
+    updateUI();
+  };
+
+  btn0.innerHTML = `${crisis.choices[0].title}<br><small style="opacity:0.8">${crisis.choices[0].description || ''}</small>`;
+  btn1.innerHTML = `${crisis.choices[1].title}<br><small style="opacity:0.8">${crisis.choices[1].description || ''}</small>`;
+
+  btn0.onclick = () => resolve(crisis.choices[0]);
+  btn1.onclick = () => resolve(crisis.choices[1]);
+}
+
+function damageRandomBuildings(count, severity) {
+  const faction = FACTIONS[state.faction];
+  const dur = faction.durability || 1;
+  let actualSeverity = severity / dur;
+
+  // China is slightly more resilient to random damage
+  if (state.faction === 'china') actualSeverity *= 0.85;
+
+  // Medical reduces overall damage (cool support idea)
+  const med = state.placedBuildings.filter(b => b.type === 'medical').length;
+  if (med > 0) actualSeverity *= (1 - Math.min(0.4, med * 0.12));
+
+  const candidates = state.placedBuildings.filter(b => b.type !== 'reactor' || Math.random() < 0.6);
+
+  for (let i = 0; i < count && candidates.length > 0; i++) {
+    const idx = Math.floor(Math.random() * candidates.length);
+    const b = candidates[idx];
+    b.damage = (b.damage || 0) + actualSeverity;
+    if (b.damage > 0.95) b.damage = 0.95;
+    candidates.splice(idx, 1);
+  }
+}
+
+// ==================== BUILDING ====================
+function canAfford(type) {
+  const def = BUILDINGS[type];
+  const faction = FACTIONS[state.faction];
+  let cost = { ...def.cost };
+  if (faction.materialCostMod) {
+    cost.materials = Math.ceil(cost.materials * faction.materialCostMod);
+  }
+  return state.resources.materials >= cost.materials;
+}
+
+function placeBuilding(x, y, type) {
+  if (state.grid[y][x]) {
+    addLog("Tile is already occupied.", "bad");
+    return false;
+  }
+  const def = BUILDINGS[type];
+  if (!def) return false;
+
+  const faction = FACTIONS[state.faction];
+  let cost = { ...def.cost };
+  if (faction.materialCostMod) cost.materials = Math.ceil(cost.materials * faction.materialCostMod);
+
+  if (state.resources.materials < cost.materials) {
+    addLog("Not enough materials.", "bad");
+    return false;
+  }
+
+  state.resources.materials -= cost.materials;
+
+  const building = { type, x, y, damage: 0, dust: 0 };
+  state.grid[y][x] = building;
+  state.placedBuildings.push(building);
+
+  addLog(`Built ${def.name} at (${x},${y})`, "good");
+  return true;
+}
+
+function repairBuilding(building) {
+  if (!building || building.isHub) return false;
+
+  const damage = building.damage || 0;
+  const dust = building.dust || 0;
+
+  if (damage < 0.05 && dust < 0.05) {
+    addLog("No significant damage or dust to repair.", "bad");
+    return false;
+  }
+
+  const repairCost = Math.ceil(8 + (damage * 25) + (dust * 18));
+  if (state.resources.materials < repairCost) {
+    addLog(`Need ${repairCost} materials to repair.`, "bad");
+    return false;
+  }
+
+  state.resources.materials -= repairCost;
+  building.damage = Math.max(0, damage - 0.55);
+  if (building.type === 'solar') building.dust = Math.max(0, dust - 0.7);
+
+  const def = BUILDINGS[building.type];
+  addLog(`Repaired ${def.name} for ${repairCost} materials.`, "good");
+  return true;
+}
+
+function getSelectedBuildingCost(type) {
+  const def = BUILDINGS[type];
+  const faction = FACTIONS[state.faction];
+  let mat = def.cost.materials;
+  if (faction.materialCostMod) mat = Math.ceil(mat * faction.materialCostMod);
+  return { materials: mat };
+}
+
+// ==================== TURN ====================
+function endTurn() {
+  if (state.gameOver) return;
+
+  const deltas = calculateTurnEffects();
+  applyDeltas(deltas);
+
+  processNightCycle();
+
+  // Chance of crisis
+  if (Math.random() < 0.72) {
+    triggerCrisis();
+  } else {
+    addLog("The cycle was relatively quiet.");
+  }
+
+  // Launch Pad supply missions (original implementation per plan)
+  const launchpads = state.placedBuildings.filter(b => b.type === 'launchpad' && getBuildingEfficiency(b) > 0.3).length;
+  if (launchpads > 0 && Math.random() < 0.25 * launchpads) {
+    const bonus = {
+      materials: 15 + Math.floor(Math.random() * 10),
+      food: 10,
+      water: 8
+    };
+    Object.keys(bonus).forEach(k => {
+      state.resources[k] = clampResource(k, state.resources[k] + bonus[k]);
+    });
+    addLog(`Supply mission from Launch Pad delivered resources.`, "good");
+  }
+
+  // Population update
+  if (state.resources.population >= state.populationCap) {
+    state.resources.morale = clampResource('morale', state.resources.morale - 2);
+  }
+
+  // Research progression (lightweight, per plan)
+  const currentScience = state.resources.science;
+  Object.keys(RESEARCH_UNLOCKS).forEach(threshold => {
+    const t = parseInt(threshold);
+    if (currentScience >= t && !state.unlockedResearch.includes(t)) {
+      state.unlockedResearch.push(t);
+      const newBuildings = RESEARCH_UNLOCKS[t];
+      addLog(`Research breakthrough! Unlocked: ${newBuildings.map(id => BUILDINGS[id].name).join(', ')}`, "good");
+    }
+  });
+
+  state.turn++;
+  addLog(`--- End of Turn ${state.turn - 1} ---`);
+
+  checkWinLose();
+
+  selectedBuildingForRepair = null;
+
+  // Auto-save per plan polish
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch(e){}
+
+  draw();
+  updateUI();
+  if (typeof refreshEndTurnButton === 'function') refreshEndTurnButton();
+}
+
+function checkWinLose() {
+  if (state.resources.population <= 0) {
+    state.gameOver = true;
+    state.defeat = true;
+    addLog("The colony has been abandoned. You lose.", "bad");
+    return;
+  }
+  if (state.resources.morale < 12 && state.turn > 6) {
+    state.gameOver = true;
+    state.defeat = true;
+    addLog("Morale collapsed. The remaining crew refuses to continue.", "bad");
+    return;
+  }
+  // Plan-aligned win: survive + grow + some research
+  if (state.turn >= 30 && state.resources.population >= 50 && state.resources.science >= 15) {
+    state.gameOver = true;
+    state.defeat = false;
+    addLog("Congratulations! You have established a thriving lunar colony with solid research progress.", "good");
+  }
+}
+
+function drawGameOver() {
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = 'bold 22px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText( (state.defeat) ? 'COLONY LOST' : 'MISSION SUCCESS', CANVAS_SIZE/2, CANVAS_SIZE/2 - 10);
+  ctx.font = '14px system-ui';
+  ctx.fillText(`Pop: ${Math.floor(state.resources.population)} • Turns: ${state.turn} • Science: ${Math.floor(state.resources.science)}`, CANVAS_SIZE/2, CANVAS_SIZE/2 + 22);
+  ctx.fillText('Use New button or reload to start again.', CANVAS_SIZE/2, CANVAS_SIZE/2 + 48);
+}
+
+// ==================== UI ====================
+function addLog(text, type = '') {
+  state.log.unshift({ text, type, turn: state.turn });
+  if (state.log.length > 22) state.log.pop();
+  updateLog();
+}
+
+function updateLog() {
+  const logEl = document.getElementById('log');
+  logEl.innerHTML = state.log.map(entry => {
+    const cls = entry.type ? `log-entry ${entry.type}` : 'log-entry';
+    return `<div class="${cls}">[${entry.turn}] ${entry.text}</div>`;
+  }).join('');
+}
+
+function updateResources() {
+  const container = document.getElementById('resources');
+  container.innerHTML = '';
+
+  const keys = ['power', 'food', 'oxygen', 'water', 'materials', 'morale', 'population', 'science'];
+  const labels = {
+    power: 'Power', food: 'Food', oxygen: 'Oxygen', water: 'Water',
+    materials: 'Materials', morale: 'Morale', population: 'Pop', science: 'Science'
+  };
+
+  keys.forEach(key => {
+    const val = Math.floor(state.resources[key]);
+    const cap = getResourceCap(key);
+    const pct = key === 'morale' ? val : Math.min(100, Math.floor((val / (cap || 100)) * 100));
+
+    const div = document.createElement('div');
+    div.className = 'resource';
+    let color = '';
+    if (key === 'morale' || key === 'population') {
+      color = val > 60 ? 'var(--good)' : val > 30 ? 'var(--warn)' : 'var(--bad)';
+    }
+    div.innerHTML = `
+      <div style="flex:1">
+        <span style="${color ? 'color:'+color : ''}">${labels[key]}</span>
+        <span style="float:right; font-variant-numeric: tabular-nums;">${val}</span>
+        ${['power','water','oxygen'].includes(key) ? `<span style="font-size:10px;color:#64748b">/${cap}</span>` : ''}
+        <div class="bar"><div style="width:${pct}%; background:${color || 'var(--accent)'}"></div></div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function getAvailableBuildings() {
+  return BUILD_ORDER.filter(type => {
+    // Check research unlocks
+    let unlocked = true;
+    for (const [threshold, buildings] of Object.entries(RESEARCH_UNLOCKS)) {
+      if (buildings.includes(type)) {
+        unlocked = state.unlockedResearch.includes(parseInt(threshold));
+        break;
+      }
+    }
+    return unlocked;
+  });
+}
+
+function updateBuildPalette() {
+  const container = document.getElementById('buildPalette');
+  container.innerHTML = '';
+
+  const available = getAvailableBuildings();
+
+  available.forEach(type => {
+    const def = BUILDINGS[type];
+    const can = canAfford(type);
+    const cost = getSelectedBuildingCost(type);
+
+    const btn = document.createElement('button');
+    btn.className = 'build-btn' + (selectedBuilding === type ? ' selected' : '');
+    btn.innerHTML = `
+      <span class="build-thumb" style="${getSpriteCss(type)}"></span>
+      <strong>${def.name}</strong>
+      <small>Mat: ${cost.materials} ${can ? '' : '(short)'}</small>
+    `;
+    btn.disabled = !can;
+    btn.onclick = () => {
+      selectedBuildingForRepair = null;
+      selectedBuilding = (selectedBuilding === type) ? null : type;
+      updateSelectedInfo();
+      updateBuildPalette();
+    };
+    container.appendChild(btn);
+  });
+
+  // Show research progress hint
+  const scienceNeeded = Object.keys(RESEARCH_UNLOCKS).filter(t => !state.unlockedResearch.includes(parseInt(t))).map(Number);
+  if (scienceNeeded.length > 0 && available.length < BUILD_ORDER.length) {
+    const next = Math.min(...scienceNeeded);
+    const hint = document.createElement('div');
+    hint.className = 'info';
+    hint.style.marginTop = '4px';
+    hint.textContent = `Research ${next} science for more buildings`;
+    container.appendChild(hint);
+  }
+}
+
+function updateSelectedInfo() {
+  const el = document.getElementById('selectedInfo');
+  if (selectedBuilding) {
+    const def = BUILDINGS[selectedBuilding];
+    el.innerHTML = `<strong>${def.symbol} ${def.name}</strong><br>${def.description}`;
+    return;
+  }
+
+  if (selectedBuildingForRepair) {
+    const def = BUILDINGS[selectedBuildingForRepair.type];
+    const dmg = Math.round((selectedBuildingForRepair.damage || 0) * 100);
+    const dst = Math.round((selectedBuildingForRepair.dust || 0) * 100);
+    let html = `<strong>${def.symbol} ${def.name}</strong><br>Damage: ${dmg}% • Dust: ${dst}%`;
+    if (dmg > 5 || dst > 5) {
+      html += `<br><button onclick="tryRepairSelected()" style="margin-top:4px;padding:2px 8px;font-size:11px">Repair</button>`;
+    }
+    el.innerHTML = html;
+    return;
+  }
+
+  el.textContent = 'Click building to inspect • Right-click to repair • Palette to build';
+}
+
+function tryRepairSelected() {
+  if (selectedBuildingForRepair && repairBuilding(selectedBuildingForRepair)) {
+    draw();
+    updateUI();
+  }
+}
+
+const SAVE_KEY = 'titans-of-luna-save-v1';
+
+function saveGame() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    addLog('Game saved locally.', 'good');
+  } catch (e) {
+    addLog('Save failed.', 'bad');
+  }
+  updateUI();
+}
+
+function loadGame() {
+  try {
+    const saved = localStorage.getItem(SAVE_KEY);
+    if (saved) {
+      const loaded = JSON.parse(saved);
+      // Basic validation
+      if (loaded && loaded.grid && loaded.resources) {
+        state = loaded;
+        // Ensure arrays exist
+        state.unlockedResearch = state.unlockedResearch || [];
+        state.placedBuildings = state.placedBuildings || [];
+        state.richTiles = state.richTiles || [];
+        state.defeat = !!state.defeat;
+        state.storage = state.storage || { power: 120, water: 200, oxygen: 150 };
+
+        // Re-link grid buildings to the same object instances as placedBuildings
+        // (JSON serialization duplicates objects, breaking references for repair/sim)
+        // This also fixes the initial starting buildings duplication on load
+        const placedByPos = {};
+        state.placedBuildings.forEach(b => {
+          if (b && typeof b.x === 'number' && typeof b.y === 'number') {
+            placedByPos[`${b.x},${b.y}`] = b;
+          }
+        });
+        state.grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null));
+        Object.keys(placedByPos).forEach(pos => {
+          const [x, y] = pos.split(',').map(Number);
+          state.grid[y][x] = placedByPos[pos];
+        });
+
+        addLog('Game loaded.', 'good');
+        draw();
+        updateUI();
+        return;
+      }
+    }
+    addLog('No valid save found.', 'bad');
+  } catch (e) {
+    addLog('Load failed.', 'bad');
+  }
+}
+
+function newGame() {
+  if (!confirm('Start a new colony? Current progress will be lost.')) return;
+  // Clear save
+  try { localStorage.removeItem(SAVE_KEY); } catch(e){}
+  stopSound();
+  // Reset to faction select
+  document.getElementById('factionOverlay').classList.remove('hidden');
+  // Clear current state display
+  state = null;
+  ctx.fillStyle = '#1a2638';
+  ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('resources').innerHTML = '';
+  document.getElementById('buildPalette').innerHTML = '';
+  document.getElementById('selectedInfo').textContent = 'Choose a sponsor to begin a new game.';
+}
+
+// Minimal soundtrack support (non-focus, optional polish)
+let currentAudio = null;
+
+function toggleSound(track) {
+  stopSound();
+  const el = track === 'calm' ? document.getElementById('audio-calm') : document.getElementById('audio-theme');
+  if (el) {
+    el.volume = 0.25; // low volume, not focus
+    el.play().catch(() => {}); // handle autoplay restrictions
+    currentAudio = el;
+    addLog(`Playing ${track} track (low volume).`, '');
+  }
+}
+
+function stopSound() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+}
+
+function setVolume(vol) {
+  const v = parseFloat(vol);
+  if (document.getElementById('audio-calm')) document.getElementById('audio-calm').volume = v;
+  if (document.getElementById('audio-theme')) document.getElementById('audio-theme').volume = v;
+}
+
+function updateHeader() {
+  document.getElementById('factionName').textContent = state.factionName;
+  document.getElementById('turn').textContent = state.turn;
+}
+
+function updateUI() {
+  updateHeader();
+  updateResources();
+  updateBuildPalette();
+  updateSelectedInfo();
+  updateLog();
+  refreshEndTurnButton();
+}
+
+function refreshEndTurnButton() {
+  const endTurnBtn = document.getElementById('endTurnBtn');
+  if (!endTurnBtn || !state) return;
+  endTurnBtn.disabled = !!state.gameOver;
+  endTurnBtn.style.opacity = state.gameOver ? '0.5' : '1';
+}
+
+function drawUtilityLinks() {
+  const connected = getConnectedBuildings();
+  const linked = new Set();
+  state.placedBuildings.forEach(building => {
+    if (building.isHub || !connected.has(building)) return;
+    let nearest = null;
+    let nearestDistance = Infinity;
+    connected.forEach(candidate => {
+      if (candidate === building) return;
+      const distance = Math.max(Math.abs(building.x - candidate.x), Math.abs(building.y - candidate.y));
+      if (distance <= CONNECTION_RADIUS && distance < nearestDistance) {
+        nearest = candidate;
+        nearestDistance = distance;
+      }
+    });
+    if (!nearest) return;
+    const a = `${building.x},${building.y}`;
+    const b = `${nearest.x},${nearest.y}`;
+    const key = [a, b].sort().join('|');
+    if (linked.has(key)) return;
+    linked.add(key);
+    ctx.beginPath();
+    ctx.moveTo(building.x * TILE_SIZE + TILE_SIZE / 2, building.y * TILE_SIZE + TILE_SIZE / 2);
+    ctx.lineTo(nearest.x * TILE_SIZE + TILE_SIZE / 2, nearest.y * TILE_SIZE + TILE_SIZE / 2);
+    ctx.strokeStyle = 'rgba(103, 232, 249, 0.62)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(8, 22, 28, 0.82)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+}
+
+function drawBuildingSprite(building) {
+  const sprite = BUILDING_SPRITES[building.type];
+  const image = sprite ? VISUAL_ASSETS[sprite.atlas] : null;
+  const px = building.x * TILE_SIZE;
+  const py = building.y * TILE_SIZE;
+  const damage = building.damage || 0;
+  const dust = building.dust || 0;
+  const efficiency = getBuildingEfficiency(building);
+  const connected = isConnected(building);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(px + 24, py + 36, 19, 7, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.58)';
+  ctx.fill();
+
+  if (image && image.complete && image.naturalWidth) {
+    const frameWidth = image.naturalWidth / sprite.columns;
+    const frameHeight = image.naturalHeight / sprite.rows;
+    const sourceX = (sprite.frame % sprite.columns) * frameWidth;
+    const sourceY = Math.floor(sprite.frame / sprite.columns) * frameHeight;
+    ctx.globalAlpha = connected ? 1 : 0.58;
+    ctx.filter = `brightness(${Math.max(0.52, 1 - damage * 0.48)}) saturate(${Math.max(0.45, 1 - dust * 0.55)})`;
+    ctx.drawImage(image, sourceX, sourceY, frameWidth, frameHeight, px - 2, py - 6, 52, 52);
+  } else {
+    const def = BUILDINGS[building.type];
+    ctx.fillStyle = '#dbe5ea';
+    ctx.fillRect(px + 6, py + 6, TILE_SIZE - 12, TILE_SIZE - 12);
+    ctx.fillStyle = '#101820';
+    ctx.font = 'bold 17px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(def.symbol, px + 24, py + 23);
+  }
+  ctx.restore();
+
+  if (dust > 0.08) {
+    ctx.fillStyle = `rgba(164, 145, 109, ${Math.min(0.38, dust * 0.5)})`;
+    ctx.fillRect(px + 5, py + 4, TILE_SIZE - 10, TILE_SIZE - 9);
+  }
+
+  if (!connected && !building.isHub) {
+    ctx.save();
+    ctx.setLineDash([4, 3]);
+    ctx.strokeStyle = '#fb7185';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6);
+    ctx.restore();
+  } else if (building.isHub) {
+    ctx.strokeStyle = '#67e8f9';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+    ctx.fillStyle = 'rgba(5, 18, 24, 0.86)';
+    ctx.fillRect(px + 13, py + 2, 22, 9);
+    ctx.fillStyle = '#a5f3fc';
+    ctx.font = 'bold 7px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('HUB', px + 24, py + 9);
+  }
+
+  if (building === selectedBuildingForRepair) {
+    ctx.strokeStyle = '#f8fafc';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+  }
+
+  ctx.fillStyle = 'rgba(4, 10, 14, 0.86)';
+  ctx.fillRect(px + 4, py + TILE_SIZE - 6, TILE_SIZE - 8, 3);
+  ctx.fillStyle = efficiency > 0.7 ? '#4ade80' : efficiency > 0.4 ? '#fbbf24' : '#fb7185';
+  ctx.fillRect(px + 4, py + TILE_SIZE - 6, (TILE_SIZE - 8) * efficiency, 3);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  ctx.imageSmoothingEnabled = true;
+  if (VISUAL_ASSETS.terrain.complete && VISUAL_ASSETS.terrain.naturalWidth) {
+    ctx.drawImage(VISUAL_ASSETS.terrain, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  } else {
+    ctx.fillStyle = '#596068';
+    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+  }
+  ctx.fillStyle = 'rgba(4, 9, 14, 0.15)';
+  ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      const px = x * TILE_SIZE;
+      const py = y * TILE_SIZE;
+      if ((x + y) % 2 === 0) {
+        ctx.fillStyle = 'rgba(7, 15, 22, 0.055)';
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+      }
+      ctx.strokeStyle = 'rgba(221, 235, 241, 0.18)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+
+      const isRich = (state.richTiles || []).some(r => r.x === x && r.y === y);
+      if (isRich && !state.grid[y][x]) {
+        ctx.beginPath();
+        ctx.arc(px + 24, py + 24, 13, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(34, 211, 238, 0.16)';
+        ctx.fill();
+        ctx.strokeStyle = '#67e8f9';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = '#cffafe';
+        ctx.font = 'bold 8px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('ICE', px + 24, py + 27);
+      }
+    }
+  }
+
+  drawUtilityLinks();
+  [...state.placedBuildings]
+    .sort((a, b) => (a.y - b.y) || (a.x - b.x))
+    .forEach(drawBuildingSprite);
+
+  // Night overlay
+  if (state.nightTurns > 0) {
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    ctx.fillStyle = '#e0f2fe';
+    ctx.font = '13px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText(`LUNAR NIGHT — ${state.nightTurns} turns left`, 12, 22);
+  }
+
+  if (state.gameOver) {
+    drawGameOver();
+  }
+}
+
+// ==================== INPUT ====================
+function resizeCanvas() {
+  if (!canvas || !ctx) return;
+  const rect = canvas.getBoundingClientRect();
+  const cssSize = Math.max(1, Math.round(rect.width || CANVAS_SIZE));
+  const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);
+  const backingSize = Math.round(cssSize * dpr);
+
+  if (canvas.width !== backingSize || canvas.height !== backingSize) {
+    canvas.width = backingSize;
+    canvas.height = backingSize;
+  }
+
+  const logicalScale = backingSize / CANVAS_SIZE;
+  ctx.setTransform(logicalScale, 0, 0, logicalScale, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+}
+
+function getTileFromMouse(evt) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (evt.clientX - rect.left) * (CANVAS_SIZE / rect.width);
+  const my = (evt.clientY - rect.top) * (CANVAS_SIZE / rect.height);
+  const x = Math.floor(mx / TILE_SIZE);
+  const y = Math.floor(my / TILE_SIZE);
+  if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return null;
+  return { x, y };
+}
+
+function setupInput() {
+  canvas.addEventListener('click', (e) => {
+    if (state.gameOver) return;
+    const tile = getTileFromMouse(e);
+    if (!tile) return;
+
+    const existing = state.grid[tile.y][tile.x];
+
+    if (selectedBuilding) {
+      // Build mode
+      if (placeBuilding(tile.x, tile.y, selectedBuilding)) {
+        draw();
+        updateUI();
+      }
+    } else if (existing) {
+      // Select building for info / repair
+      selectedBuildingForRepair = existing;
+      updateSelectedInfo();
+    }
+  });
+
+  canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const tile = getTileFromMouse(e);
+    if (tile) {
+      const b = state.grid[tile.y][tile.x];
+      if (b && repairBuilding(b)) {
+        draw();
+        updateUI();
+      }
+    }
+    selectedBuilding = null;
+    selectedBuildingForRepair = null;
+    updateSelectedInfo();
+    updateBuildPalette();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'c') {
+      selectedBuilding = null;
+      updateSelectedInfo();
+      updateBuildPalette();
+    }
+    if (e.key === ' ' || e.key === 'Enter') {
+      const interactive = e.target.closest?.('button, input, select, textarea, a, [contenteditable="true"]');
+      const overlayOpen = document.querySelector('.faction-select:not(.hidden), .crisis-overlay');
+      if (interactive || overlayOpen) return;
+      e.preventDefault();
+      if (state && !state.gameOver) endTurn();
+    }
+  });
+
+  // Faction selection
+  document.querySelectorAll('.faction-card').forEach(card => {
+    card.addEventListener('click', () => {
+      startGame(card.dataset.faction);
+    });
+  });
+
+  const endTurnBtn = document.getElementById('endTurnBtn');
+  endTurnBtn.addEventListener('click', () => {
+    if (!state.gameOver) endTurn();
+  });
+
+}
+
+function startGame(factionId) {
+  document.getElementById('factionOverlay').classList.add('hidden');
+
+  state = createInitialState(factionId);
+
+  // Starting buildings (a small seed colony)
+  const startX = Math.floor(GRID_SIZE / 2);
+  const startY = Math.floor(GRID_SIZE / 2);
+
+  // Keep the map and simulation pointed at the same building objects.
+  const addStartingBuilding = (type, x, y, extra = {}) => {
+    const building = { type, x, y, damage: 0, dust: 0, ...extra };
+    state.grid[y][x] = building;
+    state.placedBuildings.push(building);
+  };
+  addStartingBuilding('habitat', HUB_X, HUB_Y, { isHub: true });
+  addStartingBuilding('solar', HUB_X - 1, HUB_Y);
+  addStartingBuilding('iceminer', HUB_X, HUB_Y + 1);
+
+  // Seed a few rich ice deposits away from the central hub.
+  state.richTiles = [];
+  for (let i = 0; i < 3; i++) {
+    let rx = Math.floor(Math.random() * GRID_SIZE);
+    let ry = Math.floor(Math.random() * GRID_SIZE);
+    if (Math.abs(rx - HUB_X) + Math.abs(ry - HUB_Y) > 1) { // avoid center
+      state.richTiles.push({x: rx, y: ry});
+    }
+  }
+
+  // Give a little head start based on faction
+  state.defeat = false;
+  const f = FACTIONS[factionId];
+  if (factionId === 'us-spacex') state.resources.power += 25;
+  if (factionId === 'china') state.resources.materials += 30;
+  if (factionId === 'russia') state.resources.oxygen += 20;
+
+  addLog(`Colony established under ${state.factionName}.`);
+  addLog("Place buildings and click END TURN to begin operations.");
+
+  draw();
+  updateUI();
+}
+
+function init() {
+  canvas = document.getElementById('gameCanvas');
+  ctx = canvas.getContext('2d', { alpha: true });
+  preloadVisualAssets();
+
+  factionOverlay = document.getElementById('factionOverlay');
+
+  // Initial empty state for drawing
+  state = createInitialState('us-spacex');
+  state.grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null));
+  state.placedBuildings = [];
+  state.resources.population = 8;
+  state.factionName = 'Select a sponsor...';
+
+  resizeCanvas();
+  draw();
+  updateUI();
+
+  setupInput();
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    if (state) draw();
+  });
+
+  // Helpful starter log
+  const logEl = document.getElementById('log');
+  logEl.innerHTML = '<div class="log-entry">Choose your sponsor faction to begin.</div>';
+}
+
+// Boot
+init();
+</script>
+</body>
+</html>
