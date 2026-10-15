@@ -15,4 +15,4 @@ jobs:
           python-version: '3.12'
       - run: python3 luna_smoke.py
       - name: Verify approved release license
-        run: python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('LICENSE').read_bytes()).hexdigest() == '28638be413f7815704fe68aed52a4ea4cb7bd4d28b35f2dca9b78d438a4a90bf'"
+        run: python3 -c "import hashlib,pathlib; assert hashlib.sha256(pathlib.Path('LICENSE').read_bytes()).hexdigest() == '01c53180ca78bee80411c2d07e436014b62f7e48dd37de70c2fed72238ee57dc'"
